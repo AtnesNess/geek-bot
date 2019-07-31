@@ -1,0 +1,23 @@
+{
+  "dependencies": {
+    "dotenv": "^8.0.0",
+    "esm": "^3.2.25",
+    "lodash": "^4.17.15",
+    "pg": "^7.12.0",
+    "socks5-https-client": "^1.2.1",
+    "string-format": "^2.0.0",
+    "telegraf": "^3.30.1"
+  },
+  "name": "bday-bot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "module": "main.js",
+  "devDependencies": {},
+  "scripts": {
+    "start": "node -r esm index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}

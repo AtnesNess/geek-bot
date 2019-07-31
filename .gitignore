@@ -1,0 +1,13 @@
+.idea
+.DS_Store
+node_modules
+npm-debug.log
+static/build/*
+build
+*.js.map
+*.css.json
+*.log
+.env
+.tvm.json
+static/messages/*.js
+statistics.html
