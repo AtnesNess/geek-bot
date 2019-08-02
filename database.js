@@ -134,8 +134,8 @@ class UsersCollection extends DBCollection {
         this.table = 'tg_users';
     }
 
-    async getUser(username) {
-        return await this.getItem({username});
+    async getUser(chatId) {
+        return await this.getItem({chatId});
     }
 
     async getAdmins() {

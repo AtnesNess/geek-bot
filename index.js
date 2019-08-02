@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import get from 'lodash/get';
 import format from 'string-format';
 import Telegraf from 'telegraf';
 import Agent from 'socks5-https-client/lib/Agent';
@@ -59,8 +60,14 @@ stage.register(getTaskWithPartner);
 bot.use(session())
 bot.use(stage.middleware());
 
+function getUserName(user) {
+    return `[${user.first_name} ${user.last_name}](tg://user?id=${user.chatId || user.id})`;
+}
+
 bot.use(async (ctx, next, ...args) => {
     try {
+        ctx.userMention = getUserName(get(ctx, 'update.message.from'));
+
         await next(ctx);
     } catch (e) {
         console.error(e);
@@ -74,43 +81,45 @@ bot.catch(async (e) => {
 });
 
 
+async function printHelp(ctx) {
+    return await ctx.replyWithMarkdown(
+        `Вот доступные команды: \n` +
+        `/playtask - выдать таск рандомному пользователю \n` +
+        `/playprivatetask - выдать таск рандомному пользователю в личку (никто не будет знать что за таск) \n` +
+        `/playtaskforme - выдать таск себе \n` + 
+        `/rating - лидерборд \n` +
+        `/drink - с назначенным человеком ты должен выпить \n` +
+        `Когда вам будет назначен таск, в личку к вам придет отбивка с самим заданием`
+    );
+}
+
 bot.start(async (ctx) => {
-    const {update: {message: {from, from: {username}, chat: {id, type}}}} = ctx;
+    const {update: {message: {from, from: {id: userChatId}, chat: {id, type}}}} = ctx;
+    
     let user = null;
 
     try {
-        user = await users.getUser(username);
+        user = await users.getUser(userChatId);
     } catch (e) {
         if (!(e instanceof DBInstanceNotFoundError)) {
             throw e;
         }
     }
 
-    console.log(type)
-
     if (type === 'group') {
         if (user) {
             if (user.admin) {
                 await state.updateChatId(id);
             }
-            return await ctx.reply(
-                `Привет @${username} \n` +
-                `Вот доступные команды: \n` +
-                `/playtask - выдать таск рандомному пользователю \n` +
-                `/playprivatetask - выдать таск рандомному пользователю в личку (никто не будет знать что за таск) \n` +
-                `/playtaskforme - выдать таск себе \n` + 
-                `/rating - лидерборд \n` +
-                `/drink - с назначенным человеком ты должен выпить \n` +
-                `Когда вам будет назначен таск, в личку к вам придет отбивка с самим заданием`
-            );
+            return await printHelp(ctx);
         }
         return ctx.replyWithMarkdown(
-            JSON.stringify(users[username]) || `*@${username}* напиши мне /start в лс, а то не сможешь поиграть :)`
+            `${ctx.userMention} напиши мне /start в лс, а то не сможешь поиграть :)`
         );
     }
 
     if (user) {
-        await ctx.reply(`Привет @${username}`)
+        await ctx.replyWithMarkdown(`Привет ${ctx.userMention}`)
     
         ctx.session.user = user;
 
@@ -121,34 +130,41 @@ bot.start(async (ctx) => {
         return ctx.scene.enter('regFinished');
     }
 
-    ctx.reply(
+    register(ctx);
+});
+
+bot.hears(new RegExp('/help(@.*)?'), printHelp);
+
+function register(ctx) {
+    const {update: {message: {from}}} = ctx;
+
+    ctx.replyWithMarkdown(
         'Выбери свой пол?',
         {reply_markup: {keyboard: [Object.values(SEXES)]}}
     );
 
-    ctx.session.user = {...from, chatId: from.id, rating: 0};
+    ctx.session.user = {...from, playing: true, mention: ctx.userMention, chatId: from.id, rating: 0};
     ctx.scene.enter('getSex');
-});
-
+}
 
 async function playTask(ctx, chatType) {
     const {update: {message: {chat: {type}}}} = ctx;
 
     if (type !== 'group') {
-        return ctx.reply('Данная команда доступна только для группы');
+        return ctx.replyWithMarkdown('Данная команда доступна только для группы');
     }
 
     const currentTaskId = await state.getCurrentTaskId();
 
     if (currentTaskId) {
-        return ctx.reply('В данный момент уже выдано задание');
+        return ctx.replyWithMarkdown('В данный момент уже выдано задание');
     }
 
     const suitableTasks = await tasks.filterItems({approved: true, chatType});
     const randomTask = suitableTasks[Math.round(Math.random() * (suitableTasks.length - 1))];
 
     if (!randomTask) {
-        return ctx.reply('Не нашлось подходящего  таска, попробуй еще раз =(');
+        return ctx.replyWithMarkdown('Не нашлось подходящего  таска, попробуй еще раз =(');
     }
     
     const userFields = ['sex', 'lightAlco', 'middleAlco', 'hardAlco', 'withPartner'];
@@ -163,11 +179,13 @@ async function playTask(ctx, chatType) {
     if (randomTask.level > 1) {
         query.partyHard = BOOLEANS.yes;
     }
+
+    query.playing = true;
     
     const suitableUsers = Object.keys(query).length ? await users.filterItems(query) : await users.getAll();
 
     if (!suitableUsers.length) {
-        return ctx.reply('Не нашлось подходящего человека под случайно выбранный таск, попробуй еще раз =(');
+        return ctx.replyWithMarkdown('Не нашлось подходящего человека под случайно выбранный таск, попробуй еще раз =(');
     }
 
     await state.updateCurrentTaskId(randomTask.id);
@@ -176,24 +194,24 @@ async function playTask(ctx, chatType) {
 
     await state.updateCurrentUserId(user.id);
 
-    const message = `@${user.username} для тебя задание. Автор: @${randomTask.username} \n` +
+    const message = `${user.mention} для тебя задание. Автор: @${randomTask.userMention} \n` +
         `${randomTask.description} \n` + 
         `После того как закончишь пиши /taskfinish, а остальные тебя оценят :)`;
 
     if (randomTask.chatType === CHAT_TYPES.private) {
         ctx.telegram.sendMessage(user.chatId, message);
-        sendMessageToUsers(await users.getAdmins(), `По секрету скажу что задание выдано @${user.username}`, ctx);
+        sendMessageToUsers(await users.getAdmins(), `По секрету скажу что задание выдано @${user.mention}`, ctx);
 
-        return ctx.reply('Задание успешно выдано :)');
+        return ctx.replyWithMarkdown('Задание успешно выдано :)');
     }
 
-    ctx.reply(message);
+    ctx.replyWithMarkdown(message);
 }
 
-bot.command(new RegExp('rating(@.*)?'), async (ctx) => {
+bot.hears(new RegExp('/rating(@.*)?'), async (ctx) => {
     const allUsers = await users.getAll();
 
-    return ctx.reply(`Лидерборд: \n ${allUsers.sort((a, b) => a.rating - b.rating).map(user => `${user.username} - ${user.rating}`).join('\n')}`);
+    return ctx.replyWithMarkdown(`Лидерборд: \n ${allUsers.sort((a, b) => a.rating - b.rating).map(user => `${user.mention} - ${user.rating}`).join('\n')}`);
 });
 
 bot.hears(new RegExp('/playtask(@.*)?'), async (ctx) => {
@@ -211,20 +229,20 @@ bot.hears(new RegExp('/taskfinish(@.*)?'), async (ctx) => {
     const taskId = await state.getCurrentTaskId();
     const userId = await state.getCurrentUserId();
 
-    if (taskId === null) return ctx.reply('Сейчас нет текущего задания');
-    if (userId === null) return ctx.reply('Сейчас никто не проходит задание');
+    if (taskId === null) return ctx.replyWithMarkdown('Сейчас нет текущего задания');
+    if (userId === null) return ctx.replyWithMarkdown('Сейчас никто не проходит задание');
 
     const chatId = await state.getChatId();
     const task = await tasks.getItemById(taskId);
     const taskUser = await users.getItemById(userId);
 
     if (user.id !== taskUser.id && !user.admin) {
-        return ctx.reply('Сори, но ты не можешь завершить задание :)');
+        return ctx.replyWithMarkdown('Сори, но ты не можешь завершить задание :)');
     }
 
-    if (isPolling) return ctx.reply('Уже идет голосование');
+    if (isPolling) return ctx.replyWithMarkdown('Уже идет голосование');
 
-    const message = `@${user.username} только что закончил свое задание, давайте его оценим. У вас есть {} сек. ` +
+    const message = `${user.mention} только что закончил свое задание, давайте его оценим. У вас есть {} сек. ` +
         `Напоминаю, что текст задания был такой: \n ${task.description}`;
     const sec = 15;
 
@@ -232,7 +250,7 @@ bot.hears(new RegExp('/taskfinish(@.*)?'), async (ctx) => {
 
     isPolling = true;
 
-    const {message_id: pollMessageId} = await ctx.telegram.sendPoll(chatId, `Как ${user.username} справился с заданием?`, Object.values(TASK_FINISHED_STATUSES));
+    const {message_id: pollMessageId} = await ctx.telegram.sendPoll(chatId, `Как ${user.mention} справился с заданием?`, Object.values(TASK_FINISHED_STATUSES));
     await new Promise((resolve) => {
         let now = +new Date();
         const endTime = now + sec * 1000;
@@ -263,7 +281,7 @@ bot.hears(new RegExp('/taskfinish(@.*)?'), async (ctx) => {
         }
     }
 
-    ctx.telegram.sendMessage(chatId, `Ура! ${user.username} получает ${points} к рейтингу!`);
+    ctx.telegram.sendMessage(chatId, `Ура! ${user.mention} получает ${points} к рейтингу!`);
 
     taskUser.rating += points;
     taskUser.save();
@@ -271,6 +289,8 @@ bot.hears(new RegExp('/taskfinish(@.*)?'), async (ctx) => {
     isPolling = false;
     await state.updateCurrentTaskId(null);
     await state.updateCurrentUserId(null);
+
+    await printHelp(ctx);
 });
 
 getSex.hears(Object.values(SEXES), async (ctx) => {
@@ -280,7 +300,7 @@ getSex.hears(Object.values(SEXES), async (ctx) => {
 
     await ctx.scene.leave('getSex');
 
-    ctx.reply(
+    ctx.replyWithMarkdown(
         'Пьешь некрепкое? (~6 градусов)',
         {reply_markup: {keyboard: [Object.values(BOOLEANS)]}}
     );
@@ -295,7 +315,7 @@ getLightAlco.hears(Object.values(BOOLEANS), async (ctx) => {
 
     await ctx.scene.leave('getLightAlco');
 
-    ctx.reply(
+    ctx.replyWithMarkdown(
         'Пьешь среднее по крепости? (~20 градусов)',
         {reply_markup: {keyboard: [Object.values(BOOLEANS)]}}
     );
@@ -310,7 +330,7 @@ getMiddleAlco.hears(Object.values(BOOLEANS), async (ctx) => {
 
     await ctx.scene.leave('getMiddleAlco');
 
-    ctx.reply(
+    ctx.replyWithMarkdown(
         'Пьешь крепкое? (~40 градусов)',
         {reply_markup: {keyboard: [Object.values(BOOLEANS)]}}
     );
@@ -325,7 +345,7 @@ getHardAlco.hears(Object.values(BOOLEANS), async (ctx) => {
 
     await ctx.scene.leave('getHardAlco');
 
-    ctx.reply(
+    ctx.replyWithMarkdown(
         `У тебя есть партнер?`,
         {reply_markup: {keyboard: [Object.values(BOOLEANS)]}}
     );
@@ -340,7 +360,7 @@ getWithPartner.hears(Object.values(BOOLEANS), async (ctx) => {
 
     await ctx.scene.leave('getWithPartner');
 
-    ctx.reply(
+    ctx.replyWithMarkdown(
         `Готов${user.sex === SEXES.female ? 'а' : ''} оторваться? (Могут попасться жесткие задачи)`,
         {reply_markup: {keyboard: [Object.values(BOOLEANS)]}}
     );
@@ -355,7 +375,7 @@ getPartyHard.hears(Object.values(BOOLEANS), async (ctx) => {
     user.partyHard = text;
 
     await ctx.scene.leave('getPartyHard');
-    await ctx.reply(`${text === BOOLEANS.yes 
+    await ctx.replyWithMarkdown(`${text === BOOLEANS.yes 
         ? 'Отлично!' 
         : 'Жаль..'
     } В течение вечеринки в общем чате будут появляться задания и общие игры, ${
@@ -368,15 +388,13 @@ getPartyHard.hears(Object.values(BOOLEANS), async (ctx) => {
 
     session.user = user;
 
-    await ctx.reply('Ты в игре! Если хочешь предложить задание - пиши /newtask. Для списка всех команд пиши - /help');
+    await ctx.replyWithMarkdown('Ты в игре! Если хочешь предложить задание - пиши /newtask. Для списка всех команд пиши - /help');
 
     ctx.scene.enter('regFinished');
 });
 
-regFinished.hears('/register', register);
-
-async function register(ctx) {
-    const {session: {user}, message: {from}} = ctx;
+regFinished.hears('/register', async (ctx) => {
+    const {session: {user}} = ctx;
 
     await ctx.scene.leave('regFinished');
 
@@ -384,13 +402,9 @@ async function register(ctx) {
         await user.remove();
     }
 
-    ctx.reply(
-        'Выбери свой пол?',
-        {reply_markup: {keyboard: [Object.values(SEXES)]}}
-    );
-    ctx.session.user = {...from, chatId: from.id, rating: 0};
-    ctx.scene.enter('getSex');
-}
+    await register(ctx);
+});
+
 
 regFinished.hears('/registeradmin', async (ctx) => {
     const {session: {user}} = ctx;
@@ -400,37 +414,28 @@ regFinished.hears('/registeradmin', async (ctx) => {
     await user.save();
 
     ctx.scene.enter('adminScene');
-    await ctx.reply('Супер теперь ты Админ', {reply_markup: {remove_keyboard: true}});
+    await ctx.replyWithMarkdown('Супер теперь ты Админ', {reply_markup: {remove_keyboard: true}});
 });
 
 regFinished.hears('/help', async (ctx) => {
-    ctx.reply('/newtask - предложить задание\n');
+    ctx.replyWithMarkdown('/newtask - предложить задание\n');
 });
 
-regFinished.hears('/newtask', async (ctx) => {
-    const {session} = ctx;
-
-    session.task = {
-        username: session.user.username
-    };
-
-    await ctx.replyWithMarkdown('**Какое описание задания?**', {reply_markup: {remove_keyboard: true}});
-    ctx.scene.enter('getTaskDescription');
-});
-
-adminScene.hears('/newtask', async (ctx) => {
+async function newTask(ctx) {
     const {session} = ctx;
 
     session.task = {
         userChatId: session.user.chatId,
         userId: session.user.id,
-        username: session.user.username
+        userMention: session.user.mention
     };
 
     await ctx.replyWithMarkdown('**Какое описание задания?**', {reply_markup: {remove_keyboard: true}});
     ctx.scene.enter('getTaskDescription');
-});
+}
 
+adminScene.hears('/newtask', newTask);
+regFinished.hears('/newtask', newTask);
 
 
 getTaskDescription.on('text', async (ctx) => {
@@ -478,7 +483,7 @@ getTaskWithPartner.hears(Object.values(BOOLEANS_WITH_ANY), async (ctx) => {
     let {session: {task}} = ctx;
 
     await ctx.scene.leave('getTaskWithPartner');
-    await ctx.reply('Отлично твое задание на модерации', {reply_markup: {remove_keyboard: true}});
+    await ctx.replyWithMarkdown('Отлично твое задание на модерации', {reply_markup: {remove_keyboard: true}});
     
     task.withPartner = text;
     task.rating = 5;
@@ -516,11 +521,20 @@ getTaskWithPartner.hears(Object.values(BOOLEANS_WITH_ANY), async (ctx) => {
 adminScene.hears('/tasks', async (ctx) => {
     const tasksList = await tasks.getAll();
 
-    ctx.replyWithMarkdown(tasksList.map(task => `${
+    ctx.replyf(tasksList.map(task => `${
         task.approved ? '+' : '-'} **${task.id}:** ${
-        task.description} ${task.username
+        task.description} ${task.userMention
     }`).join('\n'), {reply_markup: {remove_keyboard: true}});
 });
+
+adminScene.hears('/users', async (ctx) => {
+    const userList = await users.getAll();
+
+    await ctx.reply(userList.map(user => `${
+        user.id} - ${user.mention}: ${ user.playing
+    }`).join('\n'), {reply_markup: {remove_keyboard: true}});
+});
+
 
 adminScene.hears(new RegExp('/approve(\\d+)'), async (ctx) => {
     const {match} = ctx;
@@ -530,7 +544,7 @@ adminScene.hears(new RegExp('/approve(\\d+)'), async (ctx) => {
     task.approved = true;
     task.save();
     
-    await ctx.reply('DONE', {reply_markup: {remove_keyboard: true}});
+    await ctx.replyWithMarkdown('DONE', {reply_markup: {remove_keyboard: true}});
 });
 
 
@@ -542,7 +556,7 @@ adminScene.hears(new RegExp('/reject(\\d+)'), async (ctx) => {
     task.approved = false;
     task.save();
     
-    await ctx.reply('DONE', {reply_markup: {remove_keyboard: true}});
+    await ctx.replyWithMarkdown('DONE', {reply_markup: {remove_keyboard: true}});
 });
 
 adminScene.hears(new RegExp('/setRating(\\d+) (\\d+)'), async (ctx) => {
@@ -554,7 +568,7 @@ adminScene.hears(new RegExp('/setRating(\\d+) (\\d+)'), async (ctx) => {
     task.rating = rating;
     task.save();
     
-    await ctx.reply('DONE', {reply_markup: {remove_keyboard: true}});
+    await ctx.replyWithMarkdown('DONE', {reply_markup: {remove_keyboard: true}});
 });
 
 adminScene.hears(new RegExp('/setLevel(\\d+) (\\d+)'), async (ctx) => {
@@ -566,7 +580,7 @@ adminScene.hears(new RegExp('/setLevel(\\d+) (\\d+)'), async (ctx) => {
     task.level = level;
     task.save();
     
-    await ctx.reply('DONE', {reply_markup: {remove_keyboard: true}});
+    await ctx.replyWithMarkdown('DONE', {reply_markup: {remove_keyboard: true}});
 });
 
 adminScene.hears(new RegExp(`/setPartner(\\d+) (${Object.values(BOOLEANS_WITH_ANY).join('|')})`), async (ctx) => {
@@ -578,7 +592,7 @@ adminScene.hears(new RegExp(`/setPartner(\\d+) (${Object.values(BOOLEANS_WITH_AN
     task.withPartner = withPartner;
     task.save();
     
-    await ctx.reply('DONE', {reply_markup: {remove_keyboard: true}});
+    await ctx.replyWithMarkdown('DONE', {reply_markup: {remove_keyboard: true}});
 });
 
 adminScene.hears(new RegExp(`/setSex(\\d+) (${Object.values(SEXES_WITH_ANY).join('|')})`), async (ctx) => {
@@ -590,7 +604,7 @@ adminScene.hears(new RegExp(`/setSex(\\d+) (${Object.values(SEXES_WITH_ANY).join
     task.sex = sex;
     task.save();
     
-    await ctx.reply('DONE', {reply_markup: {remove_keyboard: true}});
+    await ctx.replyWithMarkdown('DONE', {reply_markup: {remove_keyboard: true}});
 });
 
 
@@ -603,7 +617,7 @@ adminScene.hears(new RegExp(`/setChatType(\\d+) (${Object.values(CHAT_TYPES).joi
     task.chatType = chatType;
     task.save();
     
-    await ctx.reply('DONE', {reply_markup: {remove_keyboard: true}});
+    await ctx.replyWithMarkdown('DONE', {reply_markup: {remove_keyboard: true}});
 });
 
 adminScene.hears(new RegExp(`/setLightAlco(\\d+) (${Object.values(BOOLEANS_WITH_ANY).join('|')})`), async (ctx) => {
@@ -615,7 +629,7 @@ adminScene.hears(new RegExp(`/setLightAlco(\\d+) (${Object.values(BOOLEANS_WITH_
     task.lightAlco = lightAlco;
     task.save();
     
-    await ctx.reply('DONE', {reply_markup: {remove_keyboard: true}});
+    await ctx.replyWithMarkdown('DONE', {reply_markup: {remove_keyboard: true}});
 });
 
 adminScene.hears(new RegExp(`/setMiddleAlco(\\d+) (${Object.values(BOOLEANS_WITH_ANY).join('|')})`), async (ctx) => {
@@ -627,7 +641,7 @@ adminScene.hears(new RegExp(`/setMiddleAlco(\\d+) (${Object.values(BOOLEANS_WITH
     task.middleAlco = middleAlco;
     task.save();
     
-    await ctx.reply('DONE', {reply_markup: {remove_keyboard: true}});
+    await ctx.replyWithMarkdown('DONE', {reply_markup: {remove_keyboard: true}});
 });
 
 
@@ -640,7 +654,7 @@ adminScene.hears(new RegExp(`/setHardAlco(\\d+) (${Object.values(BOOLEANS_WITH_A
     task.hardAlco = hardAlco;
     task.save();
     
-    await ctx.reply('DONE', {reply_markup: {remove_keyboard: true}});
+    await ctx.replyWithMarkdown('DONE', {reply_markup: {remove_keyboard: true}});
 });
 
 adminScene.hears('/resetTask', async (ctx) => {
@@ -648,7 +662,7 @@ adminScene.hears('/resetTask', async (ctx) => {
 
     await state.updateCurrentTaskId(null);
     await state.updateCurrentUserId(null);
-    await ctx.reply(`Task ${currentTaskId} has been reseted`, {reply_markup: {remove_keyboard: true}});
+    await ctx.replyWithMarkdown(`Task ${currentTaskId} has been reseted`, {reply_markup: {remove_keyboard: true}});
 });
 
 adminScene.hears(new RegExp('/task(\\d+)'), async (ctx) => {
@@ -656,7 +670,7 @@ adminScene.hears(new RegExp('/task(\\d+)'), async (ctx) => {
     const id = Number(match[1]);
     const task = await tasks.getItemById(id);
 
-    await ctx.reply(`${JSON.stringify(task, null, 4)} ` +
+    await ctx.replyWithMarkdown(`${JSON.stringify(task, null, 4)} ` +
         `Инфо - /task${task.id} \n` +
         `Апрув - /approve${task.id} \n` +
         `Рейтинг - /setRating${task.id} \n` +
@@ -672,8 +686,46 @@ adminScene.hears(new RegExp('/task(\\d+)'), async (ctx) => {
     );
 });
 
+adminScene.hears(new RegExp('/user(\\d+)'), async (ctx) => {
+    const {match} = ctx;
+    const id = Number(match[1]);
+    const user = await users.getItemById(id);
+
+    await ctx.replyWithMarkdown(`${JSON.stringify(user, null, 4)} ` +
+        `Инфо - /user${user.id} \n` +
+        `Блок юзера - /userblock${user.id} \n` +
+        `АнБлок юзера - /userunblock${user.id} \n`,
+        {reply_markup: {remove_keyboard: true}}
+    );
+});
+
+
+adminScene.hears(new RegExp(`/userblock(\\d+)`), async (ctx) => {
+    const {match} = ctx;
+    const id = Number(match[1]);
+    const user = await users.getItemById(id);
+
+    user.playing = false;
+    user.save();
+    
+    await ctx.replyWithMarkdown('DONE', {reply_markup: {remove_keyboard: true}});
+});
+
+adminScene.hears(new RegExp(`/userunblock(\\d+)`), async (ctx) => {
+    const {match} = ctx;
+    const id = Number(match[1]);
+    const user = await users.getItemById(id);
+
+    user.playing = true;
+    user.save();
+    
+    await ctx.replyWithMarkdown('DONE', {reply_markup: {remove_keyboard: true}});
+});
+
+
+
 regFinished.on('text', async (ctx) => {
-    ctx.reply('Ты уже в игре, переходи в общий чат. Если хочешь перерегестрироваться, пиши /register', {reply_markup: {remove_keyboard: true}});
+    ctx.replyWithMarkdown('Ты уже в игре, переходи в общий чат. Если хочешь перерегестрироваться, пиши /register', {reply_markup: {remove_keyboard: true}});
 });
 
 console.log('launched');
