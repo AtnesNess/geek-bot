@@ -20,14 +20,7 @@ import { sendMessageToUsers } from './helpers';
 
 dotenv.config();
 
-const bot = new Telegraf(process.env.BOT_TOKEN, {
-    telegram: {
-        agent: new Agent({
-            socksHost: process.env.PROXY_HOST,
-            socksPort: parseInt(process.env.PROXY_PORT),
-        }),
-    }
-});
+const bot = new Telegraf(process.env.BOT_TOKEN);
 
 const stage = new Stage()
 const getSex = new Scene('getSex');
