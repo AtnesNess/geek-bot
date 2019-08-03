@@ -237,7 +237,7 @@ bot.hears(new RegExp('/taskfinish(@.*)?'), async (ctx) => {
 
     const message = `${user.mention} только что закончил свое задание, давайте его оценим. У вас есть {} сек. ` +
         `Напоминаю, что текст задания был такой: \n ${task.description}`;
-    const sec = 15;
+    const sec = 120;
 
     const {message_id: messageId} = await ctx.telegram.sendMessage(chatId, format(message, sec));
 
@@ -684,7 +684,7 @@ adminScene.hears(new RegExp('/user(\\d+)'), async (ctx) => {
     const id = Number(match[1]);
     const user = await users.getItemById(id);
 
-    await ctx.repply(`${JSON.stringify(user, null, 4)} ` +
+    await ctx.reply(`${JSON.stringify(user, null, 4)} ` +
         `Инфо - /user${user.id} \n` +
         `Блок юзера - /userblock${user.id} \n` +
         `АнБлок юзера - /userunblock${user.id} \n`,
@@ -721,8 +721,39 @@ regFinished.on('text', async (ctx) => {
 console.log('launched');
 bot.startPolling();
 
+const PIDOR_INTERVAL = 1000 * 60 * 60;
+const PRETTY_INTERVAL = PIDOR_INTERVAL;
+
+async function findPidor() {
+    const chatId = await state.getChatId();
+
+    const suitableUsers = await users.filterItems({playing: true});
+    const randomUser = suitableUsers[Math.round(Math.random() * (suitableUsers.length - 1))];
+
+    await bot.telegram.sendMessage(chatId, `Внимание внимание! Пидор этого часа - ${randomUser.mention}`);
+    await bot.telegram.sendMessage(chatId, `Напоминаю, что каждый имеет право называть этого человека пидором, в течение часа`);
+}
+
+async function findPretty() {
+    const chatId = await state.getChatId();
+
+    const suitableUsers = await users.filterItems({playing: true});
+    const randomUser = suitableUsers[Math.round(Math.random() * (suitableUsers.length - 1))];
+
+    await bot.telegram.sendMessage(chatId, `Внимание внимание! Красавчик этого часа - ${randomUser.mention}`);
+    await bot.telegram.sendMessage(chatId, `${randomUser.mention} в течение этого часа, ты должен быть в центре внимания!`);
+}
+
+setTimeout(() => {
+    findPretty();
+    setInterval(findPretty, PRETTY_INTERVAL);
+}, PRETTY_INTERVAL / 2);
+
+findPidor();
+setInterval(findPidor, PIDOR_INTERVAL);
+
+
 http.createServer((req, res) => {
-    
     res.writeHead(200);
     res.end();
 }).listen(process.env.PORT);
