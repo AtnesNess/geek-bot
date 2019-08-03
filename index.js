@@ -514,7 +514,7 @@ getTaskWithPartner.hears(Object.values(BOOLEANS_WITH_ANY), async (ctx) => {
 adminScene.hears('/tasks', async (ctx) => {
     const tasksList = await tasks.getAll();
 
-    ctx.replyf(tasksList.map(task => `${
+    ctx.replyWithMarkdown(tasksList.map(task => `${
         task.approved ? '+' : '-'} **${task.id}:** ${
         task.description} ${task.userMention
     }`).join('\n'), {reply_markup: {remove_keyboard: true}});
@@ -523,7 +523,7 @@ adminScene.hears('/tasks', async (ctx) => {
 adminScene.hears('/users', async (ctx) => {
     const userList = await users.getAll();
 
-    await ctx.reply(userList.map(user => `${
+    await ctx.replyWithMarkdown(userList.map(user => `${
         user.id} - ${user.mention}: ${ user.playing
     }`).join('\n'), {reply_markup: {remove_keyboard: true}});
 });
@@ -663,7 +663,7 @@ adminScene.hears(new RegExp('/task(\\d+)'), async (ctx) => {
     const id = Number(match[1]);
     const task = await tasks.getItemById(id);
 
-    await ctx.replyWithMarkdown(`${JSON.stringify(task, null, 4)} ` +
+    await ctx.reply(`${JSON.stringify(task, null, 4)} ` +
         `Инфо - /task${task.id} \n` +
         `Апрув - /approve${task.id} \n` +
         `Рейтинг - /setRating${task.id} \n` +
@@ -684,7 +684,7 @@ adminScene.hears(new RegExp('/user(\\d+)'), async (ctx) => {
     const id = Number(match[1]);
     const user = await users.getItemById(id);
 
-    await ctx.replyWithMarkdown(`${JSON.stringify(user, null, 4)} ` +
+    await ctx.repply(`${JSON.stringify(user, null, 4)} ` +
         `Инфо - /user${user.id} \n` +
         `Блок юзера - /userblock${user.id} \n` +
         `АнБлок юзера - /userunblock${user.id} \n`,
