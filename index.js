@@ -721,7 +721,7 @@ regFinished.on('text', async (ctx) => {
 console.log('launched');
 bot.startPolling();
 
-const PIDOR_INTERVAL = 1000 * 60;
+const PIDOR_INTERVAL = 1000 * 60 * 60;
 const PRETTY_INTERVAL = PIDOR_INTERVAL;
 
 async function findPidor() {
@@ -730,8 +730,8 @@ async function findPidor() {
     const suitableUsers = await users.filterItems({playing: true});
     const randomUser = suitableUsers[Math.round(Math.random() * (suitableUsers.length - 1))];
 
-    await bot.telegram.sendMessage(chatId, `Внимание внимание! Пидор этого часа - ${randomUser.mention}`);
-    await bot.telegram.sendMessage(chatId, `Напоминаю, что каждый имеет право называть этого человека пидором, в течение часа`);
+    await bot.telegram.sendMessage(chatId, `Внимание внимание! Пидор этого часа - ${randomUser.mention}`, {parse_mode: 'Markdown'});
+    await bot.telegram.sendMessage(chatId, `Напоминаю, что каждый имеет право называть этого человека пидором, в течение часа`, {parse_mode: 'Markdown'});
 }
 
 async function findPretty() {
@@ -740,8 +740,8 @@ async function findPretty() {
     const suitableUsers = await users.filterItems({playing: true});
     const randomUser = suitableUsers[Math.round(Math.random() * (suitableUsers.length - 1))];
 
-    await bot.telegram.sendMessage(chatId, `Внимание внимание! Красавчик этого часа - ${randomUser.mention}`);
-    await bot.telegram.sendMessage(chatId, `${randomUser.mention} в течение этого часа, ты должен быть в центре внимания!`);
+    await bot.telegram.sendMessage(chatId, `Внимание внимание! Красавчик этого часа - ${randomUser.mention}`, {parse_mode: 'Markdown'});
+    await bot.telegram.sendMessage(chatId, `${randomUser.mention} в течение этого часа, ты должен быть в центре внимания!`, {parse_mode: 'Markdown'});
 }
 
 setTimeout(() => {
