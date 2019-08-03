@@ -720,8 +720,10 @@ regFinished.on('text', async (ctx) => {
 
 let started = false;
 
-http.createServer(() => {
+http.createServer((req, res) => {
     console.log('launched');
+    res.writeHead(200);
+    res.end();
     if (started) return;
     started = true;
 
