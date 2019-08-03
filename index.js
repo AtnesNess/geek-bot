@@ -554,6 +554,7 @@ adminScene.hears(new RegExp('/approve(\\d+)'), async (ctx) => {
     task.approved = true;
     task.save();
     
+    await ctx.telegram.sendMessage(task.userChatId, `Твое задание апрувнули: ${task.description}`);
     await ctx.replyWithMarkdown('DONE', {reply_markup: {remove_keyboard: true}});
 });
 
@@ -564,6 +565,19 @@ adminScene.hears(new RegExp('/reject(\\d+)'), async (ctx) => {
     const task = await tasks.getItemById(id);
 
     task.approved = false;
+    task.save();
+    
+    await ctx.telegram.sendMessage(task.userChatId, `Твое задание забанили: ${task.description}`);
+    await ctx.replyWithMarkdown('DONE', {reply_markup: {remove_keyboard: true}});
+});
+
+adminScene.hears(new RegExp('/setDescription(\\d+) (.*)'), async (ctx) => {
+    const {match} = ctx;
+    const id = Number(match[1]);
+    const description = match[2];
+    const task = await tasks.getItemById(id);
+
+    task.description = description;
     task.save();
     
     await ctx.replyWithMarkdown('DONE', {reply_markup: {remove_keyboard: true}});
