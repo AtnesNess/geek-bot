@@ -54,6 +54,9 @@ bot.use(session())
 bot.use(stage.middleware());
 
 function getUserName(user) {
+    if (!user) {
+        return 'Unmentioned';
+    }
     return `[${user.first_name} ${user.last_name}](tg://user?id=${user.chatId || user.id})`;
 }
 
@@ -192,7 +195,7 @@ async function playTask(ctx, chatType) {
         `После того как закончишь пиши /taskfinish, а остальные тебя оценят :)`;
 
     if (randomTask.chatType === CHAT_TYPES.private) {
-        ctx.telegram.sendMessage(user.chatId, message);
+        ctx.telegram.sendMessage(user.chatId, message, {parse_mode: 'Markdown'});
         sendMessageToUsers(await users.getAdmins(), `По секрету скажу что задание выдано @${user.mention}`, ctx);
 
         return ctx.replyWithMarkdown('Задание успешно выдано :)');
@@ -247,7 +250,7 @@ bot.hears(new RegExp('/playtaskforme(@.*)?'), async (ctx) => {
         `После того как закончишь пиши /taskfinish, а остальные тебя оценят :)`;
 
     if (randomTask.chatType === CHAT_TYPES.private) {
-        ctx.telegram.sendMessage(user.chatId, message);
+        ctx.telegram.sendMessage(user.chatId, message, {parse_mode: 'Markdown'});
         sendMessageToUsers(await users.getAdmins(), `По секрету скажу что задание выдано @${user.mention}`, ctx);
 
         return ctx.replyWithMarkdown('Задание успешно выдано :)');
@@ -288,11 +291,11 @@ bot.hears(new RegExp('/taskfinish(@.*)?'), async (ctx) => {
         `Напоминаю, что текст задания был такой: \n ${task.description}`;
     const sec = 120;
 
-    const {message_id: messageId} = await ctx.telegram.sendMessage(chatId, format(message, sec));
+    const {message_id: messageId} = await ctx.telegram.sendMessage(chatId, format(message, sec), {parse_mode: 'Markdown'});
 
     isPolling = true;
 
-    const {message_id: pollMessageId} = await ctx.telegram.sendPoll(chatId, `Как ${user.mention} справился с заданием?`, Object.values(TASK_FINISHED_STATUSES));
+    const {message_id: pollMessageId} = await ctx.telegram.sendPoll(chatId, `Как ${user.first_name} ${user.last_name} справился с заданием?`, Object.values(TASK_FINISHED_STATUSES));
     await new Promise((resolve) => {
         let now = +new Date();
         const endTime = now + sec * 1000;
@@ -323,7 +326,7 @@ bot.hears(new RegExp('/taskfinish(@.*)?'), async (ctx) => {
         }
     }
 
-    ctx.telegram.sendMessage(chatId, `Ура! ${user.mention} получает ${points} к рейтингу!`);
+    ctx.telegram.sendMessage(chatId, `Ура! ${user.mention} получает ${points} к рейтингу!`, {parse_mode: 'Markdown'});
 
     taskUser.rating += points;
     taskUser.save();
@@ -701,10 +704,12 @@ adminScene.hears(new RegExp(`/setHardAlco(\\d+) (${Object.values(BOOLEANS_WITH_A
 
 adminScene.hears('/resetTask', async (ctx) => {
     const currentTaskId = await state.getCurrentTaskId();
+    const chatId = await state.getChatId();
 
     await state.updateCurrentTaskId(null);
     await state.updateCurrentUserId(null);
-    await ctx.replyWithMarkdown(`Task ${currentTaskId} has been reseted`, {reply_markup: {remove_keyboard: true}});
+    await ctx.replyWithMarkdown(`Task ${currentTaskId} has been reseted`, {parse_mode: 'Markdown'});
+    await ctx.telegram.sendMessage(chatId, `Текущее задание было отменено администратором`, {parse_mode: 'Markdown'});
 });
 
 adminScene.hears(new RegExp('/task(\\d+)'), async (ctx) => {

@@ -1,6 +1,6 @@
 export async function sendMessageToUsers(users, message, ctx) {
 
     for (let user of users) {
-        await ctx.telegram.sendMessage(user.chatId, message);
+        await ctx.telegram.sendMessage(user.chatId, message, {parse_mode: 'Markdown'});
     }
 }
