@@ -732,6 +732,7 @@ adminScene.hears(new RegExp('/task(\\d+)'), async (ctx) => {
         `Уровень - /setLevel${task.id} \n` +
         `Отказ - /reject${task.id} \n` +
         `Партнер - /setPartner${task.id} \n` +
+        `Описание - /setDescription${task.id} \n` +
         `Пол - /setSex${task.id} \n` +
         `Приватный - /setChatType${task.id} \n` +
         `Можно с пивом - /setLightAlco${task.id} \n` +

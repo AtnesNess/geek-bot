@@ -52,7 +52,6 @@ class DBCollection {
             id: instance.id,
             save: async function() {
                 const {save, id, remove, ...data} = this;
-                console.log(this, 'this');
 
                 _this.execQuery(`UPDATE ${_this.table} SET data='${JSON.stringify(data)}' WHERE id=${id}`);
             },
