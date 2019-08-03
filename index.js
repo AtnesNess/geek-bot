@@ -85,6 +85,7 @@ async function printHelp(ctx) {
         `/playtaskforme - выдать таск себе \n` + 
         `/rating - лидерборд \n` +
         `/drink - с назначенным человеком ты должен выпить \n` +
+        `/singles - список участников без пары \n` +
         `Когда вам будет назначен таск, в личку к вам придет отбивка с самим заданием`
     );
 }
@@ -191,13 +192,24 @@ async function playTaskForUser(ctx, user, chatType) {
 }
 
 async function playTask(ctx, chatType) {
-    const {update: {message: {chat: {type}}}} = ctx;
-
     const suitableUsers = await users.filterItems({playing: true});
     const randomUser = suitableUsers[Math.round(Math.random() * (suitableUsers.length - 1))];
 
     await playTaskForUser(ctx, randomUser, chatType);
 }
+
+bot.hears(new RegExp('/drink(@.*)?'), async (ctx) => {
+    const suitableUsers = await users.filterItems({playing: true});
+    const randomUser = suitableUsers[Math.round(Math.random() * (suitableUsers.length - 1))];
+
+    return ctx.replyWithMarkdown(`Выпей с ${randomUser.mention}! Za zdorovye!`);
+});
+
+bot.hears(new RegExp('/singles(@.*)?'), async (ctx) => {
+    const singles = await users.filterItems({withPartner: BOOLEANS.no});
+
+    return ctx.replyWithMarkdown(`Эти участники одиноки: \n${singles.map(user => user.mention).join('\n')}`);
+});
 
 bot.hears(new RegExp('/rating(@.*)?'), async (ctx) => {
     const allUsers = await users.getAll();
@@ -206,6 +218,7 @@ bot.hears(new RegExp('/rating(@.*)?'), async (ctx) => {
 });
 
 bot.hears(new RegExp('/playtaskforme(@.*)?'), async (ctx) => {
+    const {update: {message: {from}}} = ctx;
     const user = await users.getItem({chatId: from.id});
     
     await playTaskForUser(user);
@@ -241,7 +254,7 @@ bot.hears(new RegExp('/taskfinish(@.*)?'), async (ctx) => {
 
     const message = `${user.mention} только что закончил свое задание, давайте его оценим. У вас есть {} сек. ` +
         `Напоминаю, что текст задания был такой: \n ${task.description}`;
-    const sec = 120;
+    const sec = 60;
 
     const {message_id: messageId} = await ctx.telegram.sendMessage(chatId, format(message, sec), {parse_mode: 'Markdown'});
 
