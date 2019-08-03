@@ -76,7 +76,13 @@ class DBCollection {
         }
 
         return '(' + props.map(obj => 
-            Object.keys(obj).map(key => `data ->> '${key}'='${obj[key]}'`).join(' AND ')
+            Object.keys(obj).map(key =>{
+                if (Array.isArray(obj[key])) {
+                    return `(${obj[key].map(value => `data ->> '${key}'='${value}'`).join(' OR ')})`    
+                }
+
+                return `(data ->> '${key}'='${obj[key]}')`
+            }).join(' AND ')
         ).join(') OR (') + ')';
     }
 

@@ -215,6 +215,53 @@ bot.hears(new RegExp('/playprivatetask(@.*)?'), async (ctx) => {
     await playTask(ctx, CHAT_TYPES.private);
 });
 
+bot.hears(new RegExp('/playtaskforme(@.*)?'), async (ctx) => {
+    const {update: {message: {from, chat: {type}}}} = ctx;
+
+    if (type !== 'group') {
+        return ctx.replyWithMarkdown('Данная команда доступна только для группы');
+    }
+
+    const currentTaskId = await state.getCurrentTaskId();
+
+    if (currentTaskId) {
+        return ctx.replyWithMarkdown('В данный момент уже выдано задание');
+    }
+
+    const user = await users.getItem({chatId: from.id});
+    
+    const userBoolFields = ['lightAlco', 'middleAlco', 'hardAlco', 'withPartner'];
+    const query = userBoolFields.reduce((acc, field) => {
+        return {...acc, [field]: [user[field] || BOOLEANS_WITH_ANY.any]};
+    }, {});
+    query.sex = [user.sex, SEXES_WITH_ANY.any];
+    query.approved = true;
+
+    const suitableTasks = await tasks.filterItems(query);
+    const randomTask = suitableTasks[Math.round(Math.random() * (suitableTasks.length - 1))];
+
+    if (!randomTask) {
+        return ctx.replyWithMarkdown('Не нашлось подходящего таска, попробуй еще раз =(');
+    }
+    
+    await state.updateCurrentTaskId(randomTask.id);
+
+    await state.updateCurrentUserId(user.id);
+
+    const message = `${user.mention} для тебя задание. Автор: @${randomTask.userMention} \n` +
+        `${randomTask.description} \n` + 
+        `После того как закончишь пиши /taskfinish, а остальные тебя оценят :)`;
+
+    if (randomTask.chatType === CHAT_TYPES.private) {
+        ctx.telegram.sendMessage(user.chatId, message);
+        sendMessageToUsers(await users.getAdmins(), `По секрету скажу что задание выдано @${user.mention}`, ctx);
+
+        return ctx.replyWithMarkdown('Задание успешно выдано :)');
+    }
+
+    await ctx.replyWithMarkdown(message);
+});
+
 bot.hears(new RegExp('/taskfinish(@.*)?'), async (ctx) => {
     const {update: {message: {from}}} = ctx;
     const user = await users.getItem({chatId: from.id});
@@ -745,13 +792,10 @@ async function findPretty() {
 }
 
 setTimeout(() => {
-    findPretty();
     setInterval(findPretty, PRETTY_INTERVAL);
 }, PRETTY_INTERVAL / 2);
 
-findPidor();
 setInterval(findPidor, PIDOR_INTERVAL);
-
 
 http.createServer((req, res) => {
     res.writeHead(200);
