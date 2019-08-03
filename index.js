@@ -716,16 +716,13 @@ adminScene.hears(new RegExp(`/userunblock(\\d+)`), async (ctx) => {
 
 regFinished.on('text', async (ctx) => {
     ctx.replyWithMarkdown('Ты уже в игре, переходи в общий чат. Если хочешь перерегестрироваться, пиши /register', {reply_markup: {remove_keyboard: true}});
-});
+})
 
-let started = false;
+console.log('launched');
+bot.startPolling();
 
 http.createServer((req, res) => {
-    console.log('launched');
+    
     res.writeHead(200);
     res.end();
-    if (started) return;
-    started = true;
-
-    bot.startPolling();
 }).listen(process.env.PORT);
