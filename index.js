@@ -84,7 +84,9 @@ async function printHelp(ctx) {
         `/playprivatetask - выдать таск рандомному пользователю в личку (никто не будет знать что за таск) \n` +
         `/playtaskforme - выдать таск себе \n` + 
         `/rating - лидерборд \n` +
-        `/drink - с назначенным человеком ты должен выпить \n` +
+        `/drinkBeer - с назначенным человеком ты должен выпить пиво\n` +
+        `/drinkWine - с назначенным человеком ты должен выпить винчик\n` +
+        `/drinkVodka - с назначенным человеком ты должен выпить крепкий алкоголь\n` +
         `/singles - список участников без пары \n` +
         `Когда вам будет назначен таск, в личку к вам придет отбивка с самим заданием`
     );
@@ -198,11 +200,25 @@ async function playTask(ctx, chatType) {
     await playTaskForUser(ctx, randomUser, chatType);
 }
 
-bot.hears(new RegExp('/drink(@.*)?'), async (ctx) => {
-    const suitableUsers = await users.filterItems({playing: true});
+bot.hears(new RegExp('/drinkBeer(@.*)?'), async (ctx) => {
+    const suitableUsers = await users.filterItems({playing: true, lightAlco: BOOLEANS.yes});
     const randomUser = suitableUsers[Math.round(Math.random() * (suitableUsers.length - 1))];
 
-    return ctx.replyWithMarkdown(`Выпей с ${randomUser.mention}! Za zdorovye!`);
+    return ctx.replyWithMarkdown(`${ctx.userMention} Выпей пива с ${randomUser.mention}!`);
+});
+
+bot.hears(new RegExp('/drinkWine(@.*)?'), async (ctx) => {
+    const suitableUsers = await users.filterItems({playing: true, middleAlco: BOOLEANS.yes});
+    const randomUser = suitableUsers[Math.round(Math.random() * (suitableUsers.length - 1))];
+
+    return ctx.replyWithMarkdown(`${ctx.userMention} Выпей винчика с ${randomUser.mention}!`);
+});
+
+bot.hears(new RegExp('/drinkVodka(@.*)?'), async (ctx) => {
+    const suitableUsers = await users.filterItems({playing: true, hardAlco: BOOLEANS.yes});
+    const randomUser = suitableUsers[Math.round(Math.random() * (suitableUsers.length - 1))];
+
+    return ctx.replyWithMarkdown(`${ctx.userMention} Выпей водки с ${randomUser.mention}! Za zdorovye!`);
 });
 
 bot.hears(new RegExp('/singles(@.*)?'), async (ctx) => {
