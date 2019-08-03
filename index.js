@@ -721,7 +721,7 @@ regFinished.on('text', async (ctx) => {
 console.log('launched');
 bot.startPolling();
 
-const PIDOR_INTERVAL = 1000 * 60 * 60;
+const PIDOR_INTERVAL = 1000 * 60;
 const PRETTY_INTERVAL = PIDOR_INTERVAL;
 
 async function findPidor() {
