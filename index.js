@@ -207,13 +207,6 @@ bot.hears(new RegExp('/rating(@.*)?'), async (ctx) => {
     return ctx.replyWithMarkdown(`Лидерборд: \n ${allUsers.sort((a, b) => a.rating - b.rating).map(user => `${user.mention} - ${user.rating}`).join('\n')}`);
 });
 
-bot.hears(new RegExp('/playtask(@.*)?'), async (ctx) => {
-    await playTask(ctx, CHAT_TYPES.public);
-});
-
-bot.hears(new RegExp('/playprivatetask(@.*)?'), async (ctx) => {
-    await playTask(ctx, CHAT_TYPES.private);
-});
 
 bot.hears(new RegExp('/playtaskforme(@.*)?'), async (ctx) => {
     const {update: {message: {from, chat: {type}}}} = ctx;
@@ -260,6 +253,14 @@ bot.hears(new RegExp('/playtaskforme(@.*)?'), async (ctx) => {
     }
 
     await ctx.replyWithMarkdown(message);
+});
+
+bot.hears(new RegExp('/playtask(@.*)?'), async (ctx) => {
+    await playTask(ctx, CHAT_TYPES.public);
+});
+
+bot.hears(new RegExp('/playprivatetask(@.*)?'), async (ctx) => {
+    await playTask(ctx, CHAT_TYPES.private);
 });
 
 bot.hears(new RegExp('/taskfinish(@.*)?'), async (ctx) => {
