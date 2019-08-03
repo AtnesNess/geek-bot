@@ -221,7 +221,7 @@ bot.hears(new RegExp('/playtaskforme(@.*)?'), async (ctx) => {
     const {update: {message: {from}}} = ctx;
     const user = await users.getItem({chatId: from.id});
     
-    await playTaskForUser(user);
+    await playTaskForUser(ctx, user);
 });
 
 bot.hears(new RegExp('/playtask(@.*)?'), async (ctx) => {
