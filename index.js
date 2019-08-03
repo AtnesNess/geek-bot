@@ -143,7 +143,7 @@ function register(ctx) {
     ctx.scene.enter('getSex');
 }
 
-async function playTask(ctx, chatType) {
+async function playTaskForUser(ctx, user, chatType) {
     const {update: {message: {chat: {type}}}} = ctx;
 
     if (type !== 'group') {
@@ -156,83 +156,15 @@ async function playTask(ctx, chatType) {
         return ctx.replyWithMarkdown('В данный момент уже выдано задание');
     }
 
-    const suitableTasks = await tasks.filterItems({approved: true, chatType});
-    const randomTask = suitableTasks[Math.round(Math.random() * (suitableTasks.length - 1))];
-
-    if (!randomTask) {
-        return ctx.replyWithMarkdown('Не нашлось подходящего  таска, попробуй еще раз =(');
-    }
-    
-    const userFields = ['sex', 'lightAlco', 'middleAlco', 'hardAlco', 'withPartner'];
-    const query = userFields.reduce((acc, field) => {
-        if ([BOOLEANS_WITH_ANY.any, SEXES_WITH_ANY.any, undefined].includes(randomTask[field])) {
-            return acc;
-        }
-
-        return {...acc, [field]: randomTask[field]};
-    }, {});
-
-    if (randomTask.level > 1) {
-        query.partyHard = BOOLEANS.yes;
-    }
-
-    query.playing = true;
-    
-    const suitableUsers = Object.keys(query).length ? await users.filterItems(query) : await users.getAll();
-
-    if (!suitableUsers.length) {
-        return ctx.replyWithMarkdown('Не нашлось подходящего человека под случайно выбранный таск, попробуй еще раз =(');
-    }
-
-    await state.updateCurrentTaskId(randomTask.id);
-
-    const user = suitableUsers[Math.round(Math.random() * (suitableUsers.length - 1))];
-
-    await state.updateCurrentUserId(user.id);
-
-    const message = `${user.mention} для тебя задание. Автор: @${randomTask.userMention} \n` +
-        `${randomTask.description} \n` + 
-        `После того как закончишь пиши /taskfinish, а остальные тебя оценят :)`;
-
-    if (randomTask.chatType === CHAT_TYPES.private) {
-        ctx.telegram.sendMessage(user.chatId, message, {parse_mode: 'Markdown'});
-        sendMessageToUsers(await users.getAdmins(), `По секрету скажу что задание выдано @${user.mention}`, ctx);
-
-        return ctx.replyWithMarkdown('Задание успешно выдано :)');
-    }
-
-    ctx.replyWithMarkdown(message);
-}
-
-bot.hears(new RegExp('/rating(@.*)?'), async (ctx) => {
-    const allUsers = await users.getAll();
-
-    return ctx.replyWithMarkdown(`Лидерборд: \n ${allUsers.sort((a, b) => a.rating - b.rating).map(user => `${user.mention} - ${user.rating}`).join('\n')}`);
-});
-
-
-bot.hears(new RegExp('/playtaskforme(@.*)?'), async (ctx) => {
-    const {update: {message: {from, chat: {type}}}} = ctx;
-
-    if (type !== 'group') {
-        return ctx.replyWithMarkdown('Данная команда доступна только для группы');
-    }
-
-    const currentTaskId = await state.getCurrentTaskId();
-
-    if (currentTaskId) {
-        return ctx.replyWithMarkdown('В данный момент уже выдано задание');
-    }
-
-    const user = await users.getItem({chatId: from.id});
-    
     const userBoolFields = ['lightAlco', 'middleAlco', 'hardAlco', 'withPartner'];
     const query = userBoolFields.reduce((acc, field) => {
         return {...acc, [field]: [user[field], BOOLEANS_WITH_ANY.any]};
     }, {});
-    console.log(query)
     query.sex = [user.sex, SEXES_WITH_ANY.any];
     query.approved = true;
+    if (chatType) {
+        query.chatType = chatType;
+    }
 
     const suitableTasks = await tasks.filterItems(query);
     const randomTask = suitableTasks[Math.round(Math.random() * (suitableTasks.length - 1))];
@@ -242,7 +174,6 @@ bot.hears(new RegExp('/playtaskforme(@.*)?'), async (ctx) => {
     }
     
     await state.updateCurrentTaskId(randomTask.id);
-
     await state.updateCurrentUserId(user.id);
 
     const message = `${user.mention} для тебя задание. Автор: @${randomTask.userMention} \n` +
@@ -257,6 +188,27 @@ bot.hears(new RegExp('/playtaskforme(@.*)?'), async (ctx) => {
     }
 
     await ctx.replyWithMarkdown(message);
+}
+
+async function playTask(ctx, chatType) {
+    const {update: {message: {chat: {type}}}} = ctx;
+
+    const suitableUsers = await users.filterItems({playing: true});
+    const randomUser = suitableUsers[Math.round(Math.random() * (suitableUsers.length - 1))];
+
+    await playTaskForUser(ctx, randomUser, chatType);
+}
+
+bot.hears(new RegExp('/rating(@.*)?'), async (ctx) => {
+    const allUsers = await users.getAll();
+
+    return ctx.replyWithMarkdown(`Лидерборд: \n ${allUsers.sort((a, b) => a.rating - b.rating).map(user => `${user.mention} - ${user.rating}`).join('\n')}`);
+});
+
+bot.hears(new RegExp('/playtaskforme(@.*)?'), async (ctx) => {
+    const user = await users.getItem({chatId: from.id});
+    
+    await playTaskForUser(user);
 });
 
 bot.hears(new RegExp('/playtask(@.*)?'), async (ctx) => {
@@ -303,7 +255,7 @@ bot.hears(new RegExp('/taskfinish(@.*)?'), async (ctx) => {
         const timerId = setInterval(() => {
             now = +new Date();
 
-            ctx.telegram.editMessageText(chatId, messageId, messageId, format(message, Math.round((endTime - now) / 1000)));
+            ctx.telegram.editMessageText(chatId, messageId, messageId, format(message, Math.round((endTime - now) / 1000)), {parse_mode: 'Markdown'});
         }, 5000)
         setTimeout(() => {
             clearInterval(timerId);
