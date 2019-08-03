@@ -225,8 +225,9 @@ bot.hears(new RegExp('/playtaskforme(@.*)?'), async (ctx) => {
     
     const userBoolFields = ['lightAlco', 'middleAlco', 'hardAlco', 'withPartner'];
     const query = userBoolFields.reduce((acc, field) => {
-        return {...acc, [field]: [user[field] || BOOLEANS_WITH_ANY.any]};
+        return {...acc, [field]: [user[field], BOOLEANS_WITH_ANY.any]};
     }, {});
+    console.log(query)
     query.sex = [user.sex, SEXES_WITH_ANY.any];
     query.approved = true;
 
