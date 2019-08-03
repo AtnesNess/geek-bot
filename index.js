@@ -1,8 +1,8 @@
+import http from 'http';
 import dotenv from 'dotenv';
 import get from 'lodash/get';
 import format from 'string-format';
 import Telegraf from 'telegraf';
-import Agent from 'socks5-https-client/lib/Agent';
 import Stage from 'telegraf/stage';
 import Scene from 'telegraf/scenes/base';
 import session from 'telegraf/session';
@@ -692,7 +692,6 @@ adminScene.hears(new RegExp('/user(\\d+)'), async (ctx) => {
     );
 });
 
-
 adminScene.hears(new RegExp(`/userblock(\\d+)`), async (ctx) => {
     const {match} = ctx;
     const id = Number(match[1]);
@@ -715,11 +714,16 @@ adminScene.hears(new RegExp(`/userunblock(\\d+)`), async (ctx) => {
     await ctx.replyWithMarkdown('DONE', {reply_markup: {remove_keyboard: true}});
 });
 
-
-
 regFinished.on('text', async (ctx) => {
     ctx.replyWithMarkdown('Ты уже в игре, переходи в общий чат. Если хочешь перерегестрироваться, пиши /register', {reply_markup: {remove_keyboard: true}});
 });
 
-console.log('launched');
-bot.startPolling();
+let started = false;
+
+http.createServer(() => {
+    console.log('launched');
+    if (started) return;
+    started = true;
+
+    bot.startPolling();
+}).listen(process.env.PORT);
