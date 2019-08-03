@@ -205,7 +205,7 @@ bot.hears(new RegExp('/drinkBeer(@.*)?'), async (ctx) => {
     const randomUser = suitableUsers[Math.round(Math.random() * (suitableUsers.length - 1))];
     
     if (!randomUser) {
-        ctx.replyWithMarkdown('Никто не пьет пиво =(');
+        return ctx.replyWithMarkdown('Никто не пьет пиво =(');
     }
 
     return ctx.replyWithMarkdown(`${ctx.userMention} Выпей пива с ${randomUser.mention}!`);
@@ -216,7 +216,7 @@ bot.hears(new RegExp('/drinkWine(@.*)?'), async (ctx) => {
     const randomUser = suitableUsers[Math.round(Math.random() * (suitableUsers.length - 1))];
 
     if (!randomUser) {
-        ctx.replyWithMarkdown('Никто не пьет вино =(');
+        return ctx.replyWithMarkdown('Никто не пьет вино =(');
     }
 
     return ctx.replyWithMarkdown(`${ctx.userMention} Выпей винчика с ${randomUser.mention}!`);
@@ -227,7 +227,7 @@ bot.hears(new RegExp('/drinkVodka(@.*)?'), async (ctx) => {
     const randomUser = suitableUsers[Math.round(Math.random() * (suitableUsers.length - 1))];
 
     if (!randomUser) {
-        ctx.replyWithMarkdown('Никто не пьет водку =(');
+        return ctx.replyWithMarkdown('Никто не пьет водку =(');
     }
 
     return ctx.replyWithMarkdown(`${ctx.userMention} Выпей водки с ${randomUser.mention}! Za zdorovye!`);
