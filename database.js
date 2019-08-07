@@ -196,6 +196,22 @@ class StateCollection extends DBCollection {
     async getChatId() {
         return (await this.getItem({key: 'chatId'})).value;
     }
+
+    async updatePidorDate(date) {
+        await this.updateItems({key: 'pidorDate'}, {key: 'pidorDate', value: date});
+    }
+
+    async getPidorDate() {
+        return new Date((await this.getItem({key: 'pidorDate'})).value);
+    }
+
+    async updateAwesomeDate(date) {
+        await this.updateItems({key: 'awesomeDate'}, {key: 'awesomeDate', value: date});
+    }
+
+    async getAwesomeDate() {
+        return new Date((await this.getItem({key: 'awesomeDate'})).value);
+    }
 }
 
 export const users = new UsersCollection();

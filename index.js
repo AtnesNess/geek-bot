@@ -87,6 +87,8 @@ async function printHelp(ctx) {
         `/drinkBeer - с назначенным человеком ты должен выпить пиво\n` +
         `/drinkWine - с назначенным человеком ты должен выпить винчик\n` +
         `/drinkVodka - с назначенным человеком ты должен выпить крепкий алкоголь\n` +
+        `/pidor - Найти пидора часа\n` +
+        `/awesome - Найти красавчика часа\n` +
         `/singles - список участников без пары \n` +
         `Когда вам будет назначен таск, в личку к вам придет отбивка с самим заданием`
     );
@@ -201,6 +203,12 @@ async function playTask(ctx, chatType) {
 }
 
 bot.hears(new RegExp('/drinkBeer(@.*)?'), async (ctx) => {
+    const {update: {message: {chat: {type}}}} = ctx;
+
+    if (type !== 'group') {
+        return ctx.replyWithMarkdown('Данная команда доступна только для группы');
+    }
+
     const suitableUsers = await users.filterItems({playing: true, lightAlco: BOOLEANS.yes});
     const randomUser = suitableUsers[Math.round(Math.random() * (suitableUsers.length - 1))];
     
@@ -212,6 +220,12 @@ bot.hears(new RegExp('/drinkBeer(@.*)?'), async (ctx) => {
 });
 
 bot.hears(new RegExp('/drinkWine(@.*)?'), async (ctx) => {
+    const {update: {message: {chat: {type}}}} = ctx;
+
+    if (type !== 'group') {
+        return ctx.replyWithMarkdown('Данная команда доступна только для группы');
+    }
+
     const suitableUsers = await users.filterItems({playing: true, middleAlco: BOOLEANS.yes});
     const randomUser = suitableUsers[Math.round(Math.random() * (suitableUsers.length - 1))];
 
@@ -223,6 +237,12 @@ bot.hears(new RegExp('/drinkWine(@.*)?'), async (ctx) => {
 });
 
 bot.hears(new RegExp('/drinkVodka(@.*)?'), async (ctx) => {
+    const {update: {message: {chat: {type}}}} = ctx;
+
+    if (type !== 'group') {
+        return ctx.replyWithMarkdown('Данная команда доступна только для группы');
+    }
+
     const suitableUsers = await users.filterItems({playing: true, hardAlco: BOOLEANS.yes});
     const randomUser = suitableUsers[Math.round(Math.random() * (suitableUsers.length - 1))];
 
@@ -231,6 +251,38 @@ bot.hears(new RegExp('/drinkVodka(@.*)?'), async (ctx) => {
     }
 
     return ctx.replyWithMarkdown(`${ctx.userMention} Выпей водки с ${randomUser.mention}! Za zdorovye!`);
+});
+
+bot.hears(new RegExp('/pidor(@.*)?'), async (ctx) => {
+    const {update: {message: {chat: {type}}}} = ctx;
+
+    if (type !== 'group') {
+        return ctx.replyWithMarkdown('Данная команда доступна только для группы');
+    }
+
+    const pidorDate = await state.getPidorDate();
+
+    if (new Date() - pidorDate < 60 * 60 * 1000) {
+        return ctx.replyWithMarkdown('Пидор часа уже найден');
+    }
+
+    return await findPidor();
+});
+
+bot.hears(new RegExp('/awesome(@.*)?'), async (ctx) => {
+    const {update: {message: {chat: {type}}}} = ctx;
+
+    if (type !== 'group') {
+        return ctx.replyWithMarkdown('Данная команда доступна только для группы');
+    }
+
+    const awesomeDate = await state.getAwesomeDate();
+
+    if (new Date() - awesomeDate < 60 * 60 * 1000) {
+        return ctx.replyWithMarkdown('Красавчик часа уже найден');
+    }
+
+    return await findPretty();
 });
 
 bot.hears(new RegExp('/singles(@.*)?'), async (ctx) => {
@@ -784,14 +836,13 @@ regFinished.on('text', async (ctx) => {
 console.log('launched');
 bot.startPolling();
 
-const PIDOR_INTERVAL = 1000 * 60 * 60;
-const PRETTY_INTERVAL = PIDOR_INTERVAL;
-
 async function findPidor() {
     const chatId = await state.getChatId();
 
     const suitableUsers = await users.filterItems({playing: true});
     const randomUser = suitableUsers[Math.round(Math.random() * (suitableUsers.length - 1))];
+    
+    await state.updatePidorDate(new Date());
 
     await bot.telegram.sendMessage(chatId, `Внимание внимание! Пидор этого часа - ${randomUser.mention}`, {parse_mode: 'Markdown'});
     await bot.telegram.sendMessage(chatId, `Напоминаю, что каждый имеет право называть этого человека пидором, в течение часа`, {parse_mode: 'Markdown'});
@@ -803,15 +854,11 @@ async function findPretty() {
     const suitableUsers = await users.filterItems({playing: true});
     const randomUser = suitableUsers[Math.round(Math.random() * (suitableUsers.length - 1))];
 
+    await state.updateAwesomeDate(new Date());
+
     await bot.telegram.sendMessage(chatId, `Внимание внимание! Красавчик этого часа - ${randomUser.mention}`, {parse_mode: 'Markdown'});
     await bot.telegram.sendMessage(chatId, `${randomUser.mention} в течение этого часа, ты должен быть в центре внимания!`, {parse_mode: 'Markdown'});
 }
-
-setTimeout(() => {
-    setInterval(findPretty, PRETTY_INTERVAL);
-}, PRETTY_INTERVAL / 2);
-
-setInterval(findPidor, PIDOR_INTERVAL);
 
 http.createServer((req, res) => {
     res.writeHead(200);
