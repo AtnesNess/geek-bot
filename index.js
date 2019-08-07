@@ -166,7 +166,13 @@ async function playTaskForUser(ctx, user, chatType) {
         return {...acc, [field]: [user[field], BOOLEANS_WITH_ANY.any]};
     }, {});
     query.sex = [user.sex, SEXES_WITH_ANY.any];
+
+    if (user.partyHard !== BOOLEANS.yes) {
+        query.level = 1;
+    }
+
     query.approved = true;
+
     if (chatType) {
         query.chatType = chatType;
     }
