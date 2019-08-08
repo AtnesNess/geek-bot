@@ -478,8 +478,10 @@ getWithPartner.hears(Object.values(BOOLEANS), async (ctx) => {
 });
 
 getPartyHard.hears(Object.values(BOOLEANS), async (ctx) => {
-    const {session, update: {message: {text}}} = ctx;
+    const {userMention, session, update: {message: {text}}} = ctx;
     let {session: {user}} = ctx;
+
+    const chatId = await state.getChatId();
 
     user.partyHard = text;
 
@@ -498,8 +500,8 @@ getPartyHard.hears(Object.values(BOOLEANS), async (ctx) => {
     session.user = user;
 
     await ctx.replyWithMarkdown('Ты в игре! Если хочешь предложить задание - пиши /newtask. Для списка всех команд пиши - /help');
-
     ctx.scene.enter('regFinished');
+    await ctx.telegram.sendMessage(chatId, `${userMention} теперь в игре!`, {parse_mode: 'Markdown'});
 });
 
 regFinished.hears('/register', async (ctx) => {
