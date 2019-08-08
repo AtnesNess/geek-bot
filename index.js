@@ -685,11 +685,11 @@ adminScene.hears(new RegExp('/setDescription(\\d+) (.*)'), async (ctx) => {
 
 adminScene.hears(new RegExp('/channel (.*)'), async (ctx) => {
     const {match} = ctx;
-    const text = match[2];
+    const text = match[1];
     const chatId = await state.getChatId();
     const userInstances = await users.getAll();
     
-    await ctx.telegram.sendMessage(chatId, `${userInstances.map(({mention}) => mention).join(' ')}\n${text}`, {parse_mode: 'Markdown'});
+    await ctx.telegram.sendMessage(chatId, `${userInstances.map(({mention}) => mention).join(' ')}\n\n${text}`, {parse_mode: 'Markdown'});
 });
 
 adminScene.hears(new RegExp('/setRating(\\d+) (\\d+)'), async (ctx) => {
