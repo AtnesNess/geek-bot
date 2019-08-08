@@ -683,6 +683,15 @@ adminScene.hears(new RegExp('/setDescription(\\d+) (.*)'), async (ctx) => {
     await ctx.replyWithMarkdown('DONE', {reply_markup: {remove_keyboard: true}});
 });
 
+adminScene.hears(new RegExp('/channel (.*)'), async (ctx) => {
+    const {match} = ctx;
+    const text = match[2];
+    const chatId = await state.getChatId();
+    const userInstances = await users.getAll();
+    
+    await ctx.telegram.sendMessage(chatId, `${userInstances.map(({mention}) => mention).join(' ')}\n${text}`, {parse_mode: 'Markdown'});
+});
+
 adminScene.hears(new RegExp('/setRating(\\d+) (\\d+)'), async (ctx) => {
     const {match} = ctx;
     const id = Number(match[1]);
