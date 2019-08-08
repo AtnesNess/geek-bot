@@ -1,11 +1,13 @@
-import http from 'http';
-import dotenv from 'dotenv';
-import get from 'lodash/get';
-import format from 'string-format';
-import Telegraf from 'telegraf';
-import Stage from 'telegraf/stage';
 import Scene from 'telegraf/scenes/base';
+import Stage from 'telegraf/stage';
+import Telegraf from 'telegraf';
+import dotenv from 'dotenv';
+import format from 'string-format';
+import get from 'lodash/get';
+import got from 'got';
+import http from 'http';
 import session from 'telegraf/session';
+import throttle from 'lodash/throttle';
 
 import { 
     SEXES,
@@ -60,8 +62,17 @@ function getUserName(user) {
     return `[${user.first_name} ${user.last_name}](tg://user?id=${user.chatId || user.id})`;
 }
 
+const wakeUp = throttle(async () => {
+    console.log('wakeUp');
+    if (process.env.WAKEUP_HOST) {
+        await got(process.env.WAKEUP_HOST);
+    }
+}, 100 * 1000);
+
 bot.use(async (ctx, next, ...args) => {
     try {
+        await wakeUp();
+  
         ctx.userMention = getUserName(get(ctx, 'update.message.from'));
 
         await next(ctx);
@@ -80,6 +91,7 @@ bot.catch(async (e) => {
 async function printHelp(ctx) {
     return await ctx.replyWithMarkdown(
         `Вот доступные команды: \n` +
+        `/newtask - предложить задание (в личку боту) \n` + 
         `/playtask - выдать таск рандомному пользователю \n` +
         `/playprivatetask - выдать таск рандомному пользователю в личку (никто не будет знать что за таск) \n` +
         `/playtaskforme - выдать таск себе \n` + 
