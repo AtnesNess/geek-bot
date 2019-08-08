@@ -67,7 +67,7 @@ const wakeUp = throttle(async () => {
     if (process.env.WAKEUP_HOST) {
         await got(process.env.WAKEUP_HOST);
     }
-}, 100 * 1000);
+}, 25 * 60 * 1000);
 
 bot.use(async (ctx, next, ...args) => {
     try {
@@ -102,7 +102,8 @@ async function printHelp(ctx) {
         `/pidor - Найти пидора часа\n` +
         `/awesome - Найти красавчика часа\n` +
         `/singles - список участников без пары \n` +
-        `Когда вам будет назначен таск, в личку к вам придет отбивка с самим заданием`
+        `Когда вам будет назначен таск, в личку к вам придет отбивка с самим заданием \n` +
+        'Если я не отвечаю на ваши команды, значит я уснул - перейди на https://atnes-geek-party-bot.herokuapp.com/ и я проснусь'
     );
 }
 
